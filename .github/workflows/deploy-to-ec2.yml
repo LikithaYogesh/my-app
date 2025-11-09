@@ -1,0 +1,36 @@
+name: Deploy to EC2 (Ubuntu - Node.js App)
+
+on:
+  push:
+    branches:
+      - main    # Trigger deployment when you push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Deploy to Ubuntu EC2
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          # Write private key to a temporary file
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+
+          # SSH into EC2 and deploy
+          ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@$EC2_HOST '
+            cd /home/ubuntu/my-app &&
+            git pull origin main &&
+            npm install &&
+            if pm2 list | grep -q "my-app"; then
+              pm2 restart my-app
+            else
+              pm2 start app.js --name my-app
+              pm2 save
+            fi
+          '
